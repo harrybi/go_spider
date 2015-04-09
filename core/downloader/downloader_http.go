@@ -50,6 +50,8 @@ func (this *HttpDownloader) Download(req *request.Request) *page.Page {
 		return this.downloadJson(p, req)
 	case "text":
 		return this.downloadText(p, req)
+	case "file":
+		return this.downloadFile2(p, req)
 	default:
 		mlog.LogInst().LogError("error request type:" + mtype)
 	}
@@ -188,6 +190,47 @@ func (this *HttpDownloader) changeCharsetEncodingAuto(contentTypeStr string, sor
 func (this *HttpDownloader) encodingConvert(txt string, from_code string) (string, error) {
 	enc := mahonia.NewDecoder(from_code)
 	return enc.ConvertString(txt), nil
+}
+
+func (this *HttpDownloader) downloadFile2(p *page.Page, req *request.Request) *page.Page {
+	var err error
+	var urlstr string
+	if urlstr = req.GetUrl(); len(urlstr) == 0 {
+		mlog.LogInst().LogError("url is empty")
+		p.SetStatus(true, "url is empty")
+		return p
+	}
+	client := &http.Client{
+		CheckRedirect: req.GetRedirectFunc(),
+	}
+	httpreq, err := http.NewRequest(req.GetMethod(), req.GetUrl(), strings.NewReader(req.GetPostdata()))
+	if header := req.GetHeader(); header != nil {
+		httpreq.Header = req.GetHeader()
+	}
+	if cookies := req.GetCookies(); cookies != nil {
+		for i := range cookies {
+			httpreq.AddCookie(cookies[i])
+		}
+	}
+
+	var resp *http.Response
+	if resp, err = client.Do(httpreq); err != nil {
+		if e, ok := err.(*url.Error); ok && e.Err != nil && e.Err.Error() == "normal" {
+			//  normal
+		} else {
+			mlog.LogInst().LogError(err.Error())
+			p.SetStatus(true, err.Error())
+			return p
+		}
+	}
+	defer resp.Body.Close()
+
+	p.SetHeader(resp.Header)
+	p.SetCookies(resp.Cookies())
+	bodybuf, _ := ioutil.ReadAll(resp.Body)
+	p.SetBodyStr(string(bodybuf))
+
+	return p
 }
 
 // Download file and change the charset of page charset.
