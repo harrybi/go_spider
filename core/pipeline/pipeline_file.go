@@ -1,8 +1,8 @@
 package pipeline
 
 import (
-    "github.com/hu17889/go_spider/core/common/com_interfaces"
-    "github.com/hu17889/go_spider/core/common/page_items"
+    "github.com/harrybi/go_spider/core/common/com_interfaces"
+    "github.com/harrybi/go_spider/core/common/page_items"
     "os"
 )
 

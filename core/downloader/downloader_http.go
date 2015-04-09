@@ -1,25 +1,26 @@
 package downloader
 
 import (
-    "bytes"
-    "github.com/PuerkitoBio/goquery"
-    "github.com/bitly/go-simplejson"
-    //    iconv "github.com/djimenez/iconv-go"
-    "github.com/hu17889/go_spider/core/common/mlog"
-    "github.com/hu17889/go_spider/core/common/page"
-    "github.com/hu17889/go_spider/core/common/request"
-    "github.com/hu17889/go_spider/core/common/util"
-    //    "golang.org/x/text/encoding/simplifiedchinese"
-    //    "golang.org/x/text/transform"
-    "golang.org/x/net/html/charset"
-    "io"
-    "io/ioutil"
-    "net/http"
-    "net/url"
-    //    "regexp"
-    //    "golang.org/x/net/html"
-    "strings"
-    //"fmt"
+	"bytes"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/bitly/go-simplejson"
+	//    iconv "github.com/djimenez/iconv-go"
+	"github.com/harrybi/go_spider/core/common/mlog"
+	"github.com/harrybi/go_spider/core/common/page"
+	"github.com/harrybi/go_spider/core/common/request"
+	"github.com/harrybi/go_spider/core/common/util"
+	//    "golang.org/x/text/encoding/simplifiedchinese"
+	//    "golang.org/x/text/transform"
+	"github.com/axgle/mahonia"
+	"golang.org/x/net/html/charset"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	//    "regexp"
+	//    "golang.org/x/net/html"
+	"strings"
+	//"fmt"
 )
 
 // The HttpDownloader download page by package net/http.
@@ -29,29 +30,30 @@ import (
 // The "text" content will save body plain text only.
 // The page result is saved in Page.
 type HttpDownloader struct {
+	Charset string
 }
 
 func NewHttpDownloader() *HttpDownloader {
-    return &HttpDownloader{}
+	return &HttpDownloader{}
 }
 
 func (this *HttpDownloader) Download(req *request.Request) *page.Page {
-    var mtype string
-    var p = page.NewPage(req)
-    mtype = req.GetResponceType()
-    switch mtype {
-    case "html":
-        return this.downloadHtml(p, req)
-    case "json":
-        fallthrough
-    case "jsonp":
-        return this.downloadJson(p, req)
-    case "text":
-        return this.downloadText(p, req)
-    default:
-        mlog.LogInst().LogError("error request type:" + mtype)
-    }
-    return p
+	var mtype string
+	var p = page.NewPage(req)
+	mtype = req.GetResponceType()
+	switch mtype {
+	case "html":
+		return this.downloadHtml(p, req)
+	case "json":
+		fallthrough
+	case "jsonp":
+		return this.downloadJson(p, req)
+	case "text":
+		return this.downloadText(p, req)
+	default:
+		mlog.LogInst().LogError("error request type:" + mtype)
+	}
+	return p
 }
 
 /*
@@ -162,131 +164,142 @@ func (this *HttpDownloader) changeCharsetGoIconv(charset string, sor io.ReadClos
 
 // Charset auto determine. Use golang.org/x/net/html/charset. Get page body and change it to utf-8
 func (this *HttpDownloader) changeCharsetEncodingAuto(contentTypeStr string, sor io.ReadCloser) string {
-    var err error
-    destReader, err := charset.NewReader(sor, contentTypeStr)
-    if err != nil {
-        mlog.LogInst().LogError(err.Error())
-        destReader = sor
-    }
+	var err error
+	destReader, err := charset.NewReader(sor, contentTypeStr)
+	if err != nil {
+		mlog.LogInst().LogError(err.Error())
+		destReader = sor
+	}
 
-    var sorbody []byte
-    if sorbody, err = ioutil.ReadAll(destReader); err != nil {
-        mlog.LogInst().LogError(err.Error())
-        // For gb2312, an error will be returned.
-        // Error like: simplifiedchinese: invalid GBK encoding
-        // return ""
-    }
-    //e,name,certain := charset.DetermineEncoding(sorbody,contentTypeStr)
-    bodystr := string(sorbody)
+	var sorbody []byte
+	if sorbody, err = ioutil.ReadAll(destReader); err != nil {
+		mlog.LogInst().LogError(err.Error())
+		println("ioutil.ReadAll:" + err.Error())
+		// For gb2312, an error will be returned.
+		// Error like: simplifiedchinese: invalid GBK encoding
+		// return ""
+	}
+	//e,name,certain := charset.DetermineEncoding(sorbody,contentTypeStr)
+	bodystr := string(sorbody)
 
-    return bodystr
+	return bodystr
+}
+
+func (this *HttpDownloader) encodingConvert(txt string, from_code string) (string, error) {
+	enc := mahonia.NewDecoder(from_code)
+	return enc.ConvertString(txt), nil
 }
 
 // Download file and change the charset of page charset.
 func (this *HttpDownloader) downloadFile(p *page.Page, req *request.Request) (*page.Page, string) {
-    var err error
-    var urlstr string
-    if urlstr = req.GetUrl(); len(urlstr) == 0 {
-        mlog.LogInst().LogError("url is empty")
-        p.SetStatus(true, "url is empty")
-        return p, ""
-    }
 
-    client := &http.Client{
-        CheckRedirect: req.GetRedirectFunc(),
-    }
-    httpreq, err := http.NewRequest(req.GetMethod(), req.GetUrl(), strings.NewReader(req.GetPostdata()))
-    if header := req.GetHeader(); header != nil {
-        httpreq.Header = req.GetHeader()
-    }
-    if cookies := req.GetCookies(); cookies != nil {
-        for i := range cookies {
-            httpreq.AddCookie(cookies[i])
-        }
-    }
+	var err error
+	var urlstr string
+	if urlstr = req.GetUrl(); len(urlstr) == 0 {
+		mlog.LogInst().LogError("url is empty")
+		p.SetStatus(true, "url is empty")
+		return p, ""
+	}
+	client := &http.Client{
+		CheckRedirect: req.GetRedirectFunc(),
+	}
+	httpreq, err := http.NewRequest(req.GetMethod(), req.GetUrl(), strings.NewReader(req.GetPostdata()))
+	if header := req.GetHeader(); header != nil {
+		httpreq.Header = req.GetHeader()
+	}
+	if cookies := req.GetCookies(); cookies != nil {
+		for i := range cookies {
+			httpreq.AddCookie(cookies[i])
+		}
+	}
 
-    var resp *http.Response
-    if resp, err = client.Do(httpreq); err != nil {
-        if e, ok := err.(*url.Error); ok && e.Err != nil && e.Err.Error() == "normal" {
-            //  normal
-        } else {
-            mlog.LogInst().LogError(err.Error())
-            p.SetStatus(true, err.Error())
-            return p, ""
-        }
-    }
+	var resp *http.Response
+	if resp, err = client.Do(httpreq); err != nil {
+		if e, ok := err.(*url.Error); ok && e.Err != nil && e.Err.Error() == "normal" {
+			//  normal
+		} else {
+			mlog.LogInst().LogError(err.Error())
+			p.SetStatus(true, err.Error())
+			return p, ""
+		}
+	}
+	defer resp.Body.Close()
 
-    p.SetHeader(resp.Header)
-    p.SetCookies(resp.Cookies())
+	p.SetHeader(resp.Header)
+	p.SetCookies(resp.Cookies())
 
-    // get converter to utf-8
-    bodyStr := this.changeCharsetEncodingAuto(resp.Header.Get("Content-Type"), resp.Body)
+	bodybuf, _ := ioutil.ReadAll(resp.Body)
+	txt := string(bodybuf)
 
-    defer resp.Body.Close()
-    return p, bodyStr
+	if strings.EqualFold(this.Charset, "") {
+		this.Charset = "utf-8"
+	}
+	txt, _ = this.encodingConvert(txt, this.Charset)
+
+	return p, txt
 }
 
 func (this *HttpDownloader) downloadHtml(p *page.Page, req *request.Request) *page.Page {
-    var err error
-    p, destbody := this.downloadFile(p, req)
-    if !p.IsSucc() {
-        return p
-    }
-    bodyReader := bytes.NewReader([]byte(destbody))
+	var err error
+	p, destbody := this.downloadFile(p, req)
+	if !p.IsSucc() {
+		return p
+	}
+	bodyReader := bytes.NewReader([]byte(destbody))
 
-    var doc *goquery.Document
-    if doc, err = goquery.NewDocumentFromReader(bodyReader); err != nil {
-        mlog.LogInst().LogError(err.Error())
-        p.SetStatus(true, err.Error())
-        return p
-    }
+	var doc *goquery.Document
+	if doc, err = goquery.NewDocumentFromReader(bodyReader); err != nil {
+		mlog.LogInst().LogError(err.Error())
+		p.SetStatus(true, err.Error())
+		return p
+	}
 
-    var body string
-    if body, err = doc.Html(); err != nil {
-        mlog.LogInst().LogError(err.Error())
-        p.SetStatus(true, err.Error())
-        return p
-    }
+	var body string
+	if body, err = doc.Html(); err != nil {
+		mlog.LogInst().LogError(err.Error())
+		p.SetStatus(true, err.Error())
+		return p
+	}
 
-    p.SetBodyStr(body).SetHtmlParser(doc).SetStatus(false, "")
+	p.SetBodyStr(body).SetHtmlParser(doc).SetStatus(false, "")
 
-    return p
+	return p
 }
 
 func (this *HttpDownloader) downloadJson(p *page.Page, req *request.Request) *page.Page {
-    var err error
-    p, destbody := this.downloadFile(p, req)
-    if !p.IsSucc() {
-        return p
-    }
+	var err error
+	p, destbody := this.downloadFile(p, req)
+	if !p.IsSucc() {
+		return p
+	}
 
-    var body []byte
-    body = []byte(destbody)
-    mtype := req.GetResponceType()
-    if mtype == "jsonp" {
-        tmpstr := util.JsonpToJson(destbody)
-        body = []byte(tmpstr)
-    }
+	var body []byte
+	body = []byte(destbody)
+	mtype := req.GetResponceType()
+	if mtype == "jsonp" {
+		tmpstr := util.JsonpToJson(destbody)
+		body = []byte(tmpstr)
+	}
 
-    var r *simplejson.Json
-    if r, err = simplejson.NewJson(body); err != nil {
-        mlog.LogInst().LogError(string(body) + "\t" + err.Error())
-        p.SetStatus(true, err.Error())
-        return p
-    }
+	var r *simplejson.Json
+	if r, err = simplejson.NewJson(body); err != nil {
+		mlog.LogInst().LogError(string(body) + "\t" + err.Error())
+		p.SetStatus(true, err.Error())
+		return p
+	}
 
-    // json result
-    p.SetBodyStr(string(body)).SetJson(r).SetStatus(false, "")
+	// json result
+	p.SetBodyStr(string(body)).SetJson(r).SetStatus(false, "")
 
-    return p
+	return p
 }
 
 func (this *HttpDownloader) downloadText(p *page.Page, req *request.Request) *page.Page {
-    p, destbody := this.downloadFile(p, req)
-    if !p.IsSucc() {
-        return p
-    }
+	p, destbody := this.downloadFile(p, req)
+	if !p.IsSucc() {
+		return p
+	}
 
-    p.SetBodyStr(destbody).SetStatus(false, "")
-    return p
+	p.SetBodyStr(destbody).SetStatus(false, "")
+	return p
 }

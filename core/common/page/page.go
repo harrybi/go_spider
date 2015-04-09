@@ -5,8 +5,8 @@ package page
 import (
     "github.com/PuerkitoBio/goquery"
     "github.com/bitly/go-simplejson"
-    "github.com/hu17889/go_spider/core/common/page_items"
-    "github.com/hu17889/go_spider/core/common/request"
+    "github.com/harrybi/go_spider/core/common/page_items"
+    "github.com/harrybi/go_spider/core/common/request"
     "net/http"
     //"fmt"
 )
